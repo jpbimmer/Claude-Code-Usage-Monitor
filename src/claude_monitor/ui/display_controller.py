@@ -522,7 +522,7 @@ class LiveDisplayManager:
             console=display_console,
             refresh_per_second=refresh_per_second,
             auto_refresh=auto_refresh,
-            vertical_overflow="visible",  # Prevent screen scrolling
+            screen=True,  # Use full-screen mode to prevent flashing in tmux
         )
 
         return self._live_context

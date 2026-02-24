@@ -26,7 +26,6 @@ from claude_monitor.data.analysis import analyze_usage
 from claude_monitor.error_handling import report_error
 from claude_monitor.monitoring.orchestrator import MonitoringOrchestrator
 from claude_monitor.terminal.manager import (
-    enter_alternate_screen,
     handle_cleanup_and_exit,
     handle_error_and_exit,
     restore_terminal,
@@ -152,8 +151,6 @@ def _run_monitoring(args: argparse.Namespace) -> None:
         loading_display = display_controller.create_loading_display(
             args.plan, args.timezone
         )
-
-        enter_alternate_screen()
 
         live_display_active = False
 
