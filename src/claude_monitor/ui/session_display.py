@@ -5,7 +5,7 @@ Handles formatting of active session screens and session data display.
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any, Dict, Optional
 
 import pytz
 
@@ -191,6 +191,36 @@ class SessionDisplayComponent:
             cost_limit_p90 = kwargs.get("cost_limit_p90", DEFAULT_COST_LIMIT)
             messages_limit_p90 = kwargs.get("messages_limit_p90", 1500)
 
+            cost_percentage = (
+                min(100, percentage(session_cost, cost_limit_p90))
+                if cost_limit_p90 > 0
+                else 0
+            )
+            messages_percentage = (
+                min(100, percentage(sent_messages, messages_limit_p90))
+                if messages_limit_p90 > 0
+                else 0
+            )
+
+            # Render Claude official usage if API data available,
+            # otherwise predict from the max of the 3 breakdown metrics
+            api_usage = kwargs.get("api_usage")
+            if api_usage:
+                self._render_api_usage(screen_buffer, api_usage)
+            else:
+                predicted_pct = max(cost_percentage, usage_percentage, messages_percentage)
+                calibration_multiplier = kwargs.get("calibration_multiplier", 1.0)
+                if calibration_multiplier != 1.0:
+                    predicted_pct = min(100, predicted_pct * calibration_multiplier)
+                    usage_label = "Cal. Claude Usage"
+                else:
+                    usage_label = "Est. Claude Usage"
+                screen_buffer.append("")
+                predicted_bar = self._render_wide_progress_bar(predicted_pct)
+                screen_buffer.append(
+                    f"⚡ [value]{usage_label}:[/]   {predicted_bar} {predicted_pct:4.1f}%    [dim](max of cost/tokens/messages)[/dim]"
+                )
+
             screen_buffer.append("")
             if plan == "custom":
                 screen_buffer.append("[bold]📊 Session-Based Dynamic Limits[/bold]")
@@ -201,11 +231,6 @@ class SessionDisplayComponent:
             else:
                 screen_buffer.append("")
 
-            cost_percentage = (
-                min(100, percentage(session_cost, cost_limit_p90))
-                if cost_limit_p90 > 0
-                else 0
-            )
             cost_bar = self._render_wide_progress_bar(cost_percentage)
             screen_buffer.append(
                 f"💰 [value]Cost Usage:[/]           {cost_bar} {cost_percentage:4.1f}%    [value]${session_cost:.2f}[/] / [dim]${cost_limit_p90:.2f}[/]"
@@ -218,11 +243,6 @@ class SessionDisplayComponent:
             )
             screen_buffer.append("")
 
-            messages_percentage = (
-                min(100, percentage(sent_messages, messages_limit_p90))
-                if messages_limit_p90 > 0
-                else 0
-            )
             messages_bar = self._render_wide_progress_bar(messages_percentage)
             screen_buffer.append(
                 f"📨 [value]Messages Usage:[/]       {messages_bar} {messages_percentage:4.1f}%    [value]{sent_messages}[/] / [dim]{messages_limit_p90:,}[/]"
@@ -332,6 +352,73 @@ class SessionDisplayComponent:
         )
 
         return screen_buffer
+
+    def _render_api_usage(
+        self, screen_buffer: list[str], api_usage: Dict[str, Any]
+    ) -> None:
+        """Render Claude's official usage bars above the breakdown bars.
+
+        Args:
+            screen_buffer: Screen buffer to append to
+            api_usage: Dict with 'five_hour' and/or 'seven_day' utilization data
+        """
+        screen_buffer.append("")
+        screen_buffer.append("[bold]⚡ Claude Official Usage[/bold]")
+
+        for window_key, label in [
+            ("five_hour", "5h"),
+            ("seven_day", "7d"),
+        ]:
+            window = api_usage.get(window_key)
+            if not window:
+                continue
+
+            utilization = window.get("utilization", 0.0)
+            pct = utilization * 100.0 if utilization <= 1.0 else utilization
+            resets_at = window.get("resets_at", "")
+
+            bar = self._render_wide_progress_bar(pct)
+            reset_str = ""
+            if resets_at:
+                reset_str = self._format_reset_time(resets_at)
+                if reset_str:
+                    reset_str = f"    [dim]resets {reset_str}[/dim]"
+
+            screen_buffer.append(
+                f"⚡ [value]Claude Usage ({label}):[/] {bar} {pct:4.1f}%{reset_str}"
+            )
+
+        screen_buffer.append(f"[separator]{'─' * 60}[/]")
+
+    @staticmethod
+    def _format_reset_time(resets_at: str) -> str:
+        """Format a reset timestamp into a human-readable 'in Xh Ym' string."""
+        try:
+            from datetime import timezone as tz
+
+            reset_dt = datetime.fromisoformat(resets_at.replace("Z", "+00:00"))
+            now = datetime.now(tz.utc)
+            delta = reset_dt - now
+            total_seconds = max(0, int(delta.total_seconds()))
+
+            if total_seconds == 0:
+                return "now"
+
+            days = total_seconds // 86400
+            hours = (total_seconds % 86400) // 3600
+            minutes = (total_seconds % 3600) // 60
+
+            parts = []
+            if days > 0:
+                parts.append(f"{days}d")
+            if hours > 0:
+                parts.append(f"{hours}h")
+            if minutes > 0 or not parts:
+                parts.append(f"{minutes}m")
+
+            return "in " + " ".join(parts)
+        except Exception:
+            return ""
 
     def _add_notifications(
         self,

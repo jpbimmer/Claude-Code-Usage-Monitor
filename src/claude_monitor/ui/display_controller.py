@@ -196,7 +196,9 @@ class DisplayController:
         }
 
     def create_data_display(
-        self, data: Dict[str, Any], args: Any, token_limit: int
+        self, data: Dict[str, Any], args: Any, token_limit: int,
+        api_usage: Optional[Dict[str, Any]] = None,
+        calibration_multiplier: float = 1.0,
     ) -> RenderableType:
         """Create display renderable from data.
 
@@ -204,6 +206,7 @@ class DisplayController:
             data: Usage data dictionary
             args: Command line arguments
             token_limit: Current token limit
+            api_usage: Optional Claude official usage data from API
 
         Returns:
             Rich renderable for display
@@ -267,6 +270,13 @@ class DisplayController:
         if Plans.is_valid_plan(args.plan):
             processed_data["cost_limit_p90"] = cost_limit_p90
             processed_data["messages_limit_p90"] = messages_limit_p90
+
+        # Pass API usage data through for display
+        if api_usage is not None:
+            processed_data["api_usage"] = api_usage
+
+        # Pass calibration multiplier through for display
+        processed_data["calibration_multiplier"] = calibration_multiplier
 
         try:
             screen_buffer = self.session_display.format_active_session_screen(
