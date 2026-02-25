@@ -54,6 +54,7 @@ class CalibrationStore:
 
     def get_multiplier(self) -> float:
         """Return mean(actual/estimated) from stored samples, default 1.0."""
+        self._load()
         if not self._samples:
             return 1.0
 
