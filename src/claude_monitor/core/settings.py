@@ -166,10 +166,6 @@ class Settings(BaseSettings):
         description="Enable debug logging (equivalent to --log-level DEBUG)",
     )
 
-    calibrate: Optional[float] = Field(
-        default=None, ge=0, le=100, description="Calibrate usage estimate with actual Claude usage % from settings page"
-    )
-
     version: bool = Field(default=False, description="Show version information")
 
     clear: bool = Field(default=False, description="Clear saved configuration")

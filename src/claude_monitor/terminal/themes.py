@@ -390,8 +390,17 @@ class BackgroundDetector:
                             break
                         response += char
                         # Stop if we get the expected terminator
-                        if response.endswith("\033\\"):
+                        # Terminals may use ST (\033\\) or BEL (\007)
+                        if response.endswith("\033\\") or response.endswith("\007"):
                             break
+
+                    # Drain any remaining bytes from stdin
+                    try:
+                        while select.select([sys.stdin], [], [], 0.01)[0]:
+                            if not sys.stdin.read(1):
+                                break
+                    except (OSError, ValueError):
+                        pass
 
                     # Restore blocking mode
                     fcntl.fcntl(fd, fcntl.F_SETFL, fl)

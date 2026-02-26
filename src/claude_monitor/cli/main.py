@@ -90,10 +90,6 @@ def main(argv: Optional[List[str]] = None) -> int:
 
         init_timezone(settings.timezone)
 
-        # Handle --calibrate: one-shot calibration then exit
-        if settings.calibrate is not None:
-            return _handle_calibrate(settings)
-
         args = settings.to_namespace()
 
         _run_monitoring(args)
@@ -108,85 +104,6 @@ def main(argv: Optional[List[str]] = None) -> int:
         logger.error(f"Monitor failed: {e}", exc_info=True)
         traceback.print_exc()
         return 1
-
-
-def _handle_calibrate(settings: Settings) -> int:
-    """Handle --calibrate flag: record a calibration sample and exit."""
-    from claude_monitor.data.calibration import CalibrationStore
-
-    actual_pct = settings.calibrate
-    args = settings.to_namespace()
-
-    # Fetch current data to compute our estimated %
-    data_paths = discover_claude_data_paths()
-    if not data_paths:
-        print("No Claude data directory found. Cannot calibrate.")
-        return 1
-
-    data_path = data_paths[0]
-    token_limit = _get_initial_token_limit(args, str(data_path))
-
-    from claude_monitor.data.analysis import analyze_usage
-
-    usage_data = analyze_usage(
-        hours_back=96 * 2, quick_start=False, use_cache=False, data_path=str(data_path)
-    )
-
-    if not usage_data or "blocks" not in usage_data:
-        print("No usage data available. Cannot calibrate.")
-        return 1
-
-    # Find active block
-    active_block = None
-    for block in usage_data["blocks"]:
-        if isinstance(block, dict) and block.get("isActive", False):
-            active_block = block
-            break
-
-    if not active_block:
-        print("No active session found. Cannot calibrate.")
-        return 1
-
-    # Compute our estimated % (max of cost/token/messages)
-    from claude_monitor.core.plans import Plans, get_cost_limit
-    from claude_monitor.utils.time_utils import percentage
-
-    tokens_used = active_block.get("totalTokens", 0)
-    session_cost = active_block.get("costUSD", 0.0)
-    sent_messages = active_block.get("sentMessagesCount", 0)
-
-    token_pct = percentage(tokens_used, token_limit) if token_limit > 0 else 0
-
-    if args.plan == "custom":
-        from claude_monitor.ui.components import AdvancedCustomLimitDisplay
-        temp_display = AdvancedCustomLimitDisplay(None)
-        session_data = temp_display._collect_session_data(usage_data["blocks"])
-        percentiles = temp_display._calculate_session_percentiles(session_data["limit_sessions"])
-        cost_limit_p90 = percentiles["costs"]["p90"]
-        messages_limit_p90 = percentiles["messages"]["p90"]
-    else:
-        cost_limit_p90 = get_cost_limit(args.plan)
-        messages_limit_p90 = Plans.get_message_limit(args.plan)
-
-    cost_pct = min(100, percentage(session_cost, cost_limit_p90)) if cost_limit_p90 > 0 else 0
-    messages_pct = min(100, percentage(sent_messages, messages_limit_p90)) if messages_limit_p90 > 0 else 0
-
-    estimated_pct = max(cost_pct, token_pct, messages_pct)
-
-    if estimated_pct <= 0:
-        print("Current estimated usage is 0%. Start a session first, then calibrate.")
-        return 1
-
-    store = CalibrationStore()
-    old_multiplier = store.get_multiplier()
-    store.add_sample(estimated_pct, actual_pct)
-    new_multiplier = store.get_multiplier()
-
-    print(
-        f"Calibration saved: est {estimated_pct:.1f}% → actual {actual_pct:.1f}%, "
-        f"multiplier: {old_multiplier:.2f}x → {new_multiplier:.2f}x"
-    )
-    return 0
 
 
 def _run_monitoring(args: argparse.Namespace) -> None:
@@ -271,7 +188,6 @@ def _run_monitoring(args: argparse.Namespace) -> None:
                     renderable = display_controller.create_data_display(
                         data, args, monitoring_data.get("token_limit", token_limit),
                         api_usage=monitoring_data.get("api_usage"),
-                        calibration_multiplier=monitoring_data.get("calibration_multiplier", 1.0),
                     )
 
                     if live_display:

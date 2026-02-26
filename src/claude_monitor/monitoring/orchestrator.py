@@ -7,7 +7,6 @@ from typing import Any, Callable, Dict, List, Optional
 
 from claude_monitor.core.plans import DEFAULT_TOKEN_LIMIT, get_token_limit
 from claude_monitor.data.api_client import AnthropicUsageClient
-from claude_monitor.data.calibration import CalibrationStore
 from claude_monitor.error_handling import report_error
 from claude_monitor.monitoring.data_manager import DataManager
 from claude_monitor.monitoring.session_monitor import SessionMonitor
@@ -32,7 +31,6 @@ class MonitoringOrchestrator:
         self.data_manager: DataManager = DataManager(cache_ttl=5, data_path=data_path)
         self.session_monitor: SessionMonitor = SessionMonitor()
         self.api_client: AnthropicUsageClient = AnthropicUsageClient(cache_ttl=60)
-        self.calibration_store: CalibrationStore = CalibrationStore()
 
         self._monitoring: bool = False
         self._monitor_thread: Optional[threading.Thread] = None
@@ -184,7 +182,6 @@ class MonitoringOrchestrator:
                 "session_id": self.session_monitor.current_session_id,
                 "session_count": self.session_monitor.session_count,
                 "api_usage": api_usage,
-                "calibration_multiplier": self.calibration_store.get_multiplier(),
             }
 
             # Store last valid data

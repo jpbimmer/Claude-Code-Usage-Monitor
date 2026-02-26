@@ -198,7 +198,6 @@ class DisplayController:
     def create_data_display(
         self, data: Dict[str, Any], args: Any, token_limit: int,
         api_usage: Optional[Dict[str, Any]] = None,
-        calibration_multiplier: float = 1.0,
     ) -> RenderableType:
         """Create display renderable from data.
 
@@ -269,9 +268,6 @@ class DisplayController:
         # Pass API usage data through for display
         if api_usage is not None:
             processed_data["api_usage"] = api_usage
-
-        # Pass calibration multiplier through for display
-        processed_data["calibration_multiplier"] = calibration_multiplier
 
         try:
             screen_buffer = self.session_display.format_active_session_screen(
