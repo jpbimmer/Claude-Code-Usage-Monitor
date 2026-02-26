@@ -203,33 +203,24 @@ class SessionDisplayComponent:
             )
 
             # Render Claude official usage if API data available,
-            # otherwise predict from the max of the 3 breakdown metrics
+            # otherwise show session intensity vs P90 of user's own sessions
             api_usage = kwargs.get("api_usage")
             if api_usage:
                 self._render_api_usage(screen_buffer, api_usage)
             else:
                 predicted_pct = max(cost_percentage, usage_percentage, messages_percentage)
-                calibration_multiplier = kwargs.get("calibration_multiplier", 1.0)
-                if calibration_multiplier != 1.0:
-                    predicted_pct = min(100, predicted_pct * calibration_multiplier)
-                    usage_label = "Cal. Claude Usage"
-                else:
-                    usage_label = "Est. Claude Usage"
                 screen_buffer.append("")
                 predicted_bar = self._render_wide_progress_bar(predicted_pct)
                 screen_buffer.append(
-                    f"⚡ [value]{usage_label}:[/]   {predicted_bar} {predicted_pct:4.1f}%    [dim](max of cost/tokens/messages)[/dim]"
+                    f"⚡ [value]Session Intensity:[/] {predicted_bar} {predicted_pct:4.1f}%    [dim](% of your typical P90 session)[/dim]"
                 )
 
             screen_buffer.append("")
-            if plan == "custom":
-                screen_buffer.append("[bold]📊 Session-Based Dynamic Limits[/bold]")
-                screen_buffer.append(
-                    "[dim]Based on your historical usage patterns when hitting limits (P90)[/dim]"
-                )
-                screen_buffer.append(f"[separator]{'─' * 60}[/]")
-            else:
-                screen_buffer.append("")
+            screen_buffer.append("[bold]📊 Session Breakdown[/bold]")
+            screen_buffer.append(
+                "[dim]Limits based on your P90 session history[/dim]"
+            )
+            screen_buffer.append(f"[separator]{'─' * 60}[/]")
 
             cost_bar = self._render_wide_progress_bar(cost_percentage)
             screen_buffer.append(

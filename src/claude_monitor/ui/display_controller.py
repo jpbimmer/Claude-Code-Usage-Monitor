@@ -233,23 +233,19 @@ class DisplayController:
             )
             return self.buffer_manager.create_screen_renderable(screen_buffer)
 
-        cost_limit_p90 = None
-        messages_limit_p90 = None
+        # Compute P90 limits from the user's own session history (all plans)
+        temp_display = AdvancedCustomLimitDisplay(None)
+        session_data = temp_display._collect_session_data(data["blocks"])
+        all_sessions = session_data.get("all_sessions", [])
 
-        if args.plan == "custom":
-            temp_display = AdvancedCustomLimitDisplay(None)
-            session_data = temp_display._collect_session_data(data["blocks"])
-            percentiles = temp_display._calculate_session_percentiles(
-                session_data["limit_sessions"]
-            )
+        if all_sessions:
+            percentiles = temp_display._calculate_session_percentiles(all_sessions)
             cost_limit_p90 = percentiles["costs"]["p90"]
             messages_limit_p90 = percentiles["messages"]["p90"]
         else:
-            # Use centralized cost limits
+            # Fallback to plan limits for new users with no session history
             from claude_monitor.core.plans import get_cost_limit
-
             cost_limit_p90 = get_cost_limit(args.plan)
-
             messages_limit_p90 = Plans.get_message_limit(args.plan)
 
         # Process active session data with cost limit
@@ -267,9 +263,8 @@ class DisplayController:
             return self.buffer_manager.create_screen_renderable(screen_buffer)
 
         # Add P90 limits to processed data for display
-        if Plans.is_valid_plan(args.plan):
-            processed_data["cost_limit_p90"] = cost_limit_p90
-            processed_data["messages_limit_p90"] = messages_limit_p90
+        processed_data["cost_limit_p90"] = cost_limit_p90
+        processed_data["messages_limit_p90"] = messages_limit_p90
 
         # Pass API usage data through for display
         if api_usage is not None:
