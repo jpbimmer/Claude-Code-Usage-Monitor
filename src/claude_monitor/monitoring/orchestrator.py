@@ -6,7 +6,6 @@ import time
 from typing import Any, Callable, Dict, List, Optional
 
 from claude_monitor.core.plans import DEFAULT_TOKEN_LIMIT, get_token_limit
-from claude_monitor.data.api_client import AnthropicUsageClient
 from claude_monitor.error_handling import report_error
 from claude_monitor.monitoring.data_manager import DataManager
 from claude_monitor.monitoring.session_monitor import SessionMonitor
@@ -30,7 +29,6 @@ class MonitoringOrchestrator:
 
         self.data_manager: DataManager = DataManager(cache_ttl=5, data_path=data_path)
         self.session_monitor: SessionMonitor = SessionMonitor()
-        self.api_client: AnthropicUsageClient = AnthropicUsageClient(cache_ttl=60)
 
         self._monitoring: bool = False
         self._monitor_thread: Optional[threading.Thread] = None
@@ -171,9 +169,6 @@ class MonitoringOrchestrator:
             # Calculate token limit
             token_limit: int = self._calculate_token_limit(data)
 
-            # Fetch API usage (gracefully returns None on failure)
-            api_usage = self.api_client.fetch_usage()
-
             # Prepare monitoring data
             monitoring_data: Dict[str, Any] = {
                 "data": data,
@@ -181,7 +176,6 @@ class MonitoringOrchestrator:
                 "args": self._args,
                 "session_id": self.session_monitor.current_session_id,
                 "session_count": self.session_monitor.session_count,
-                "api_usage": api_usage,
             }
 
             # Store last valid data
