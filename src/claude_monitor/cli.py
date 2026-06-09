@@ -8,7 +8,7 @@ from rich.live import Live
 from claude_monitor.display import make_dashboard
 from claude_monitor.reader import load_current_window
 
-LOCAL_INTERVAL = 10
+LOCAL_INTERVAL = 3
 
 
 def run(data_path: Optional[str] = None, refresh_rate: float = 1.0) -> None:

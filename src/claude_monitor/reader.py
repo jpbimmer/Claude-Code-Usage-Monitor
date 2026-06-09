@@ -94,14 +94,20 @@ def _load_all_entries(data_path: Path) -> List[Dict[str, Any]]:
 
 
 def _find_windows(entries: List[Dict[str, Any]]) -> List[datetime]:
-    """Return the start timestamp of each 5-hour window."""
+    """Return the start timestamp of each 5-hour window.
+
+    A new window starts whenever an entry falls at or after the current
+    window's end time — not just on a 5-hour idle gap. This correctly
+    handles a new message sent seconds after the previous window expired.
+    """
     if not entries:
         return []
     starts = [entries[0]["timestamp"]]
-    for i in range(1, len(entries)):
-        gap = entries[i]["timestamp"] - entries[i - 1]["timestamp"]
-        if gap >= SESSION_DURATION:
-            starts.append(entries[i]["timestamp"])
+    current_end = starts[0] + SESSION_DURATION
+    for entry in entries[1:]:
+        if entry["timestamp"] >= current_end:
+            starts.append(entry["timestamp"])
+            current_end = entry["timestamp"] + SESSION_DURATION
     return starts
 
 
