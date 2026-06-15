@@ -49,6 +49,12 @@ def _model_display(raw: str) -> str:
         if m:
             return f"Haiku {m.group(1)}.{m.group(2)}"
         return "Haiku"
+    if "fable" in s:
+        import re
+        m = re.search(r"fable-(\d+)", s)
+        if m:
+            return f"Fable {m.group(1)}"
+        return "Fable"
     return raw
 
 
